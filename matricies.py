@@ -20,38 +20,26 @@ def evaluate_vector(vec, coord, sys=None):
     v = np.array(vec,dtype='O')
 
     for i in range(v.size):
-        try:
-            v[i] = sympify(v[i])
-        except:
-            pass
+        v[i] = sympify(v[i])
 
     if sys == 'cart':
         c = coord.cart()
         for i in range(v.size):
-            try:
-                v[i] = v[i].subs('x',c[0])
-                v[i] = v[i].subs('y',c[1])
-                v[i] = v[i].subs('z',c[2])
-            except:
-                pass
+            v[i] = v[i].subs('x',c[0])
+            v[i] = v[i].subs('y',c[1])
+            v[i] = v[i].subs('z',c[2])
     elif sys == 'cyl':
         c = coord.cyl()
         for i in range(v.size):
-            try:
-                v[i] = v[i].subs('r',c[0])
-                v[i] = v[i].subs('phi',c[1])
-                v[i] = v[i].subs('z',c[2])
-            except:
-                pass
+            v[i] = v[i].subs('r',c[0])
+            v[i] = v[i].subs('phi',c[1])
+            v[i] = v[i].subs('z',c[2])
     elif sys == 'sph':
         c = coord.sph()
         for i in range(v.size):
-            try:
-                v[i] = v[i].subs('r',c[0])
-                v[i] = v[i].subs('theta',c[1])
-                v[i] = v[i].subs('phi',c[2])
-            except:
-                pass
+            v[i] = v[i].subs('r',c[0])
+            v[i] = v[i].subs('theta',c[1])
+            v[i] = v[i].subs('phi',c[2])
     return v
 
 
