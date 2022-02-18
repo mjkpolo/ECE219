@@ -1,201 +1,231 @@
 import numpy as np
-from sympy import sympify
+import sympy
 
-def get_phi(x=None,y=None):
-    if not x or not y:
-        raise ValueError("pass x and y")
-    return np.arctan(y/x) + np.pi if x<0 else np.arctan(y/x)
+theta, phi = sympy.symbols("theta phi")
 
-def get_theta(x=None,y=None,z=None,r=None):
-    if (not x or not y or not z) and (not r or not z):
-        raise ValueError("pass x and y and z, or r and z")
-    if not x and not y:
-        return np.arccos(z/np.sqrt(r**2+z**2))
+
+def lineIntegral(charge_per_meter, dl, lower, upper, rprime, r):
+    r = r.cart()
+    rprime = rprime.cart(r)
+    diff = (r[0] - rprime[0], r[1] - rprime[1], r[2] - rprime[2])
+    magnitude = sympy.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
+    coeff = charge_per_meter / (4 * sympy.pi * 8.85e-12 * magnitude**3)
+    return (
+        float(sympy.integrate(diff[0] * coeff, (dl, lower, upper))),
+        float(sympy.integrate(diff[1] * coeff, (dl, lower, upper))),
+        float(sympy.integrate(diff[2] * coeff, (dl, lower, upper))),
+    )
+
+
+def getPhi(x, y):
+    if x == 0:
+        return sympy.pi / 2 if y > 0 else -sympy.pi / 2
+    elif x < 0:
+        return sympy.atan(y / x) + sympy.pi
     else:
-        return np.arccos(z/np.sqrt(x**2+y**2+z**2))
+        return sympy.atan(y / x)
 
-def evaluate_vector(vec, coord, sys=None):
-    if sys != 'cart' and sys != 'sph' and sys != 'cyl':
-        raise ValueError("Pass sys as 'cart', 'sph', or 'cyl'")
-    v = np.array(vec,dtype='O')
 
-    for i in range(v.size):
-        v[i] = sympify(v[i])
-
-    if sys == 'cart':
-        c = coord.cart()
-        for i in range(v.size):
-            v[i] = v[i].subs('x',c[0])
-            v[i] = v[i].subs('y',c[1])
-            v[i] = v[i].subs('z',c[2])
-    elif sys == 'cyl':
-        c = coord.cyl()
-        for i in range(v.size):
-            v[i] = v[i].subs('r',c[0])
-            v[i] = v[i].subs('phi',c[1])
-            v[i] = v[i].subs('z',c[2])
-    elif sys == 'sph':
-        c = coord.sph()
-        for i in range(v.size):
-            v[i] = v[i].subs('r',c[0])
-            v[i] = v[i].subs('theta',c[1])
-            v[i] = v[i].subs('phi',c[2])
-    return v
+def evaluate_vector(vec, coord):
+    v = list(vec)
+    for i in range(len(v)):
+        x, y, z = coord.cart()
+        r, theta, phi = coord.sph()
+        v[i] = v[i].subs([("x", x), ("y", y), ("z", z), ("phi", phi), ("theta", theta)])
+        if coord.sys == "cyl":
+            r = coord.cyl()[0]
+        v[i] = v[i].subs("r", r)
+    return tuple(float(f) for f in v)
 
 
 class Coord:
-    def __init__(self,coord,sys=None):
-        if sys != 'cart' and sys != 'sph' and sys != 'cyl':
+    def __init__(self, coord, sys=None):
+        if sys != "cart" and sys != "sph" and sys != "cyl":
             raise ValueError("Pass sys as 'cart', 'sph', or 'cyl'")
-        self.sys=sys
+        self.sys = sys
         self.coord = np.array(coord)
+
     def __iter__(self):
         return iter(self.coord)
+
     def __getitem__(self, index):
         return self.coord[index]
+
     def __repr__(self):
         return f"Coord({self.coord}, sys={self.sys})"
+
     def __str__(self):
         return str(self.coord)
 
     def cart(self):
-        if self.sys == 'cart':
+        if self.sys == "cart":
             return self
-        elif self.sys == 'sph':
-            r,theta,phi = self.coord
-
-            x = r*np.sin(theta)*np.cos(phi)
-            y = r*np.sin(theta)*np.sin(phi)
-            z = r*np.cos(theta)
-        elif self.sys == 'cyl':
-            r,phi,z = self.coord
-
-            x = r*np.cos(phi)
-            y = r*np.sin(phi)
+        elif self.sys == "sph":
+            r, theta, phi = self.coord
+            x = r * sympy.sin(theta) * sympy.cos(phi)
+            y = r * sympy.sin(theta) * sympy.sin(phi)
+            z = r * sympy.cos(theta)
+        elif self.sys == "cyl":
+            r, phi, z = self.coord
+            x = r * sympy.cos(phi)
+            y = r * sympy.sin(phi)
         else:
-            raise ValueError("This shouldn't happen ever...")
-        return Coord((x,y,z), sys='cart')
+            raise ValueError("Yell at Marco")
+        return Coord((x, y, z), sys="cart")
 
     def sph(self):
-        if self.sys == 'sph':
+        if self.sys == "sph":
             return self
-        elif self.sys == 'cart':
-            x,y,z = self.coord
-
-            theta = get_theta(x=x,y=y,z=z)
-            phi = get_phi(x=x,y=y)
-            r = np.sqrt(x**2 + y**2 + z**2)
-        elif self.sys == 'cyl':
-            r,phi,z = self.coord
-
-            theta = get_theta(z=z,r=r)
-            r = np.sqrt(r**2+z**2)
+        elif self.sys == "cart":
+            x, y, z = self.coord
+            theta = sympy.acos(z / sympy.sqrt(x**2 + y**2 + z**2))
+            phi = getPhi(x, y)
+            r = sympy.sqrt(x**2 + y**2 + z**2)
+        elif self.sys == "cyl":
+            r, phi, z = self.coord
+            theta = sympy.acos(z / sympy.sqrt(r**2 + z**2))
+            r = sympy.sqrt(r**2 + z**2)
         else:
-            raise ValueError("This shouldn't happen ever...")
-        return Coord((r,theta,phi), sys='sph')
+            raise ValueError("Yell at Marco")
+        return Coord((r, theta, phi), sys="sph")
 
     def cyl(self):
-        if self.sys == 'cyl':
+        if self.sys == "cyl":
             return self
-        elif self.sys == 'cart':
-            x,y,z = self.coord
-            
-            r = np.sqrt(x**2+y**2)
-            phi = get_phi(x=x,y=y)
-        elif self.sys == 'sph':
-            r,theta,phi = self.coord
-
-            z = r*np.cos(theta)
-            r = r*np.sin(theta)
+        elif self.sys == "cart":
+            x, y, z = self.coord
+            r = sympy.sqrt(x**2 + y**2)
+            phi = getPhi(x, y)
+        elif self.sys == "sph":
+            r, theta, phi = self.coord
+            z = r * sympy.cos(theta)
+            r = r * sympy.sin(theta)
         else:
-            raise ValueError("This shouldn't happen ever...")
-        return Coord((r,phi,z), sys='cyl')
+            raise ValueError("Yell at Marco")
+        return Coord((r, phi, z), sys="cyl")
 
 
 class Vec:
-    def __init__(self,vec,sys=None):
-        if sys != 'cart' and sys != 'sph' and sys != 'cyl':
+    def __init__(self, vec, sys=None):
+        if sys != "cart" and sys != "sph" and sys != "cyl":
             raise ValueError("Pass sys as 'cart', 'sph', or 'cyl'")
-        self.sys=sys
-        self.vec = vec
+        self.sys = sys
+        self.vec = np.array(tuple(sympy.sympify(v) for v in vec), dtype="O")
 
     def __iter__(self):
         return iter(self.vec)
+
     def __getitem__(self, index):
         return self.vec[index]
+
     def __repr__(self):
         return f"Vec({self.vec}, sys={self.sys})"
+
     def __str__(self):
         return str(self.vec)
 
     def cart(self, coord):
         if type(coord) is not Coord:
             raise ValueError("Pass a coordinate object")
-        v = evaluate_vector(self.vec, coord, sys=self.sys)
-        if self.sys == 'cart':
-            return v
-        elif self.sys == 'sph':
-            _,theta,phi = coord.sph()
-            return Vec(
-                    np.array(
-                    [[np.sin(theta)*np.cos(phi), np.cos(theta)*np.cos(phi), -np.sin(phi)],
-                    [np.sin(theta)*np.sin(phi), np.cos(theta)*np.sin(phi), np.cos(phi)],
-                    [np.cos(theta), -np.sin(theta), 0]]
-                    ).dot(v),
-                    sys='cart')
-        elif self.sys == 'cyl':
-            _,phi,_ = coord.cyl()
-            return Vec(
-                    np.array(
-                    [[np.cos(phi),-np.sin(phi),0],
-                    [np.sin(phi), np.cos(phi), 0],
-                    [0,0,1]]
-                    ).dot(v),
-                    sys='cart')
+        _, theta, phi = coord.sph()
 
-    def sph(self,coord):
+        if self.sys == "cart":
+            return Vec(self.vec, sys="cart")
+        elif self.sys == "sph":
+            return Vec(
+                np.array(
+                    [
+                        [
+                            sympy.sin(theta) * sympy.cos(phi),
+                            sympy.cos(theta) * sympy.cos(phi),
+                            -sympy.sin(phi),
+                        ],
+                        [
+                            sympy.sin(theta) * sympy.sin(phi),
+                            sympy.cos(theta) * sympy.sin(phi),
+                            sympy.cos(phi),
+                        ],
+                        [sympy.cos(theta), -sympy.sin(theta), 0],
+                    ]
+                ).dot(self.vec),
+                sys="cart",
+            )
+        elif self.sys == "cyl":
+            return Vec(
+                np.array(
+                    [
+                        [sympy.cos(phi), -sympy.sin(phi), 0],
+                        [sympy.sin(phi), sympy.cos(phi), 0],
+                        [0, 0, 1],
+                    ]
+                ).dot(self.vec),
+                sys="cart",
+            )
+
+    def sph(self, coord):
         if type(coord) is not Coord:
             raise ValueError("Pass a coordinate object")
-        v = evaluate_vector(self.vec, coord, sys=self.sys)
-        if self.sys == 'sph':
-            return v
-        elif self.sys == 'cart':
-            _,theta,phi = coord.sph()
-            return Vec(
-                    np.array(
-                    [[np.sin(theta)*np.cos(phi), np.sin(theta)*np.sin(phi), np.cos(theta)],
-                    [np.cos(theta)*np.cos(phi), np.cos(theta)*np.sin(phi), -np.sin(theta)],
-                    [-np.sin(phi), np.cos(phi), 0]]
-                    ).dot(v),
-                    sys='sph')
-        elif self.sys == 'cyl':
-            _,theta,_ = coord.sph()
-            return Vec(
-                    np.array(
-                    [[np.sin(theta),0,np.cos(theta)],
-                    [np.cos(theta), 0, -np.sin(theta)],
-                    [0,1,0]]).dot(v),
-                    sys='sph')
+        _, theta, phi = coord.sph()
 
-    def cyl(self,coord):
-        v = evaluate_vector(self.vec, coord, sys=self.sys)
+        if self.sys == "sph":
+            return Vec(v, sys="sph")
+        elif self.sys == "cart":
+            return Vec(
+                np.array(
+                    [
+                        [
+                            sympy.sin(theta) * sympy.cos(phi),
+                            sympy.sin(theta) * sympy.sin(phi),
+                            sympy.cos(theta),
+                        ],
+                        [
+                            sympy.cos(theta) * sympy.cos(phi),
+                            sympy.cos(theta) * sympy.sin(phi),
+                            -sympy.sin(theta),
+                        ],
+                        [-sympy.sin(phi), sympy.cos(phi), 0],
+                    ]
+                ).dot(self.vec),
+                sys="sph",
+            )
+        elif self.sys == "cyl":
+            return Vec(
+                np.array(
+                    [
+                        [sympy.sin(theta), 0, sympy.cos(theta)],
+                        [sympy.cos(theta), 0, -sympy.sin(theta)],
+                        [0, 1, 0],
+                    ]
+                ).dot(self.vec),
+                sys="sph",
+            )
+
+    def cyl(self, coord):
         if type(coord) is not Coord:
             raise ValueError("Pass a coordinate object")
-        if self.sys == 'cyl':
-            return self
-        elif self.sys == 'cart':
-            _,phi,_ = coord.cyl()
+        _, theta, phi = coord.sph()
+
+        if self.sys == "cyl":
+            return Vec(v, sys="cyl")
+        elif self.sys == "cart":
             return Vec(
-                    np.array(
-                    [[np.cos(phi), np.sin(phi), 0],
-                    [-np.sin(phi), np.cos(phi), 0],
-                    [0, 0, 1]]).dot(v),
-                    sys='cyl')
-        elif self.sys == 'sph':
-            _,theta,_ = coord.sph()
+                np.array(
+                    [
+                        [sympy.cos(phi), sympy.sin(phi), 0],
+                        [-sympy.sin(phi), sympy.cos(phi), 0],
+                        [0, 0, 1],
+                    ]
+                ).dot(self.vec),
+                sys="cyl",
+            )
+        elif self.sys == "sph":
             return Vec(
-                    np.array(
-                    [[np.sin(theta), np.cos(theta), 0],
-                    [0, 0, 1],
-                    [np.cos(theta), -np.sin(theta), 0]]).dot(v),
-                    sys='cyl')
+                np.array(
+                    [
+                        [sympy.sin(theta), sympy.cos(theta), 0],
+                        [0, 0, 1],
+                        [sympy.cos(theta), -sympy.sin(theta), 0],
+                    ]
+                ).dot(self.vec),
+                sys="cyl",
+            )
