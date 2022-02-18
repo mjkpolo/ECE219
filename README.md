@@ -16,31 +16,55 @@ finally, navigate to this folder and run `ipython` and follow the example usage 
 `matricies.py`: Coordinate and Vector transformations
 ----
 
-Coordinates can be converted, and Vectors can be transformed with a coordinate parameter to rotate around.
+Coordinates and Vectors can easily be converted with `.sph(), .cyl(), .cart()`
 
-use `evaluate_vector(vector, coordinate)` to plug in values from the coordinate. r depends on the system of the coordinate passed
+use `evaluate_vector(vector, coordinate)` to plug in values from the coordinate. r depends on the system of the coordinate passed, but x,y,z,theta,phi are all independent of coordinate system
 
 
 ### Example usage in iPython:
 
 ```python
-In [20]: c = Coord((10, 4 * pi / 6, pi / 6), sys="sph")
+In [1]: from matricies import Coord, Vec, evaluate_vector
 
-In [21]: c.cyl()
-Out[21]: Coord([5*sqrt(3) pi/6 -5], sys=cyl)
+In [2]: c = Coord((10, 4 * pi / 6, pi / 6), sys="sph")
+---------------------------------------------------------------------------
+NameError                                 Traceback (most recent call last)
+Input In [2], in <module>
+----> 1 c = Coord((10, 4 * pi / 6, pi / 6), sys="sph")
 
-In [22]: c.cart()
-Out[22]: Coord([15/2 5*sqrt(3)/2 -5], sys=cart)
+NameError: name 'pi' is not defined
 
-In [23]: v = Vec(("sin(theta)**2*cos(phi)", "cos(phi)**2", "-sin(phi)"), sys="sph")
+In [3]: from sympy import pi
 
-In [24]: v.cyl(c)
-Out[24]:
-Vec([sqrt(3)*sin(theta)**2*cos(phi)/2 - cos(phi)**2/2 -sin(phi)
- -sin(theta)**2*cos(phi)/2 - sqrt(3)*cos(phi)**2/2], sys=cyl)
+In [4]: c = Coord((10, 4 * pi / 6, pi / 6), sys="sph")
 
-In [25]: evaluate_vector(v.cyl(c), c)
-Out[25]: (0.1875, -0.5, -0.9742785792574935)
+In [5]: c.sph()
+Out[5]: Coord([10 2*pi/3 pi/6], sys=sph)
+
+In [6]: c.cyl()
+Out[6]: Coord([5*sqrt(3) pi/6 -5], sys=cyl)
+
+In [7]: c.cart()
+Out[7]: Coord([15/2 5*sqrt(3)/2 -5], sys=cart)
+
+In [8]: v = Vec(("sin(theta)**2*cos(phi)", "cos(phi)**2", "-sin(phi)"), sys="sph")
+
+In [9]: v.sph()
+Out[9]: Vec([sin(theta)**2*cos(phi) cos(phi)**2 -sin(phi)], sys=sph)
+
+In [10]: v.cyl()
+Out[10]:
+Vec([sin(theta)**3*cos(phi) + cos(phi)**2*cos(theta) -sin(phi)
+ sin(theta)**2*cos(phi)*cos(theta) - sin(theta)*cos(phi)**2], sys=cyl)
+
+In [11]: v.cart()
+Out[11]:
+Vec([sin(phi)**2 + sin(theta)**3*cos(phi)**2 + cos(phi)**3*cos(theta)
+ sin(phi)*sin(theta)**3*cos(phi) + sin(phi)*cos(phi)**2*cos(theta) - sin(phi)*cos(phi)
+ sin(theta)**2*cos(phi)*cos(theta) - sin(theta)*cos(phi)**2], sys=cart)
+
+In [12]: evaluate_vector(v.cyl(), c)
+Out[12]: (0.1875, -0.5, -0.9742785792574935)
 
 ```
 

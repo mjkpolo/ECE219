@@ -124,11 +124,7 @@ class Vec:
     def __str__(self):
         return str(self.vec)
 
-    def cart(self, coord):
-        if type(coord) is not Coord:
-            raise ValueError("Pass a coordinate object")
-        _, theta, phi = coord.sph()
-
+    def cart(self):
         if self.sys == "cart":
             return Vec(self.vec, sys="cart")
         elif self.sys == "sph":
@@ -162,13 +158,9 @@ class Vec:
                 sys="cart",
             )
 
-    def sph(self, coord):
-        if type(coord) is not Coord:
-            raise ValueError("Pass a coordinate object")
-        _, theta, phi = coord.sph()
-
+    def sph(self):
         if self.sys == "sph":
-            return Vec(v, sys="sph")
+            return Vec(self.vec, sys="sph")
         elif self.sys == "cart":
             return Vec(
                 np.array(
@@ -200,13 +192,9 @@ class Vec:
                 sys="sph",
             )
 
-    def cyl(self, coord):
-        if type(coord) is not Coord:
-            raise ValueError("Pass a coordinate object")
-        _, theta, phi = coord.sph()
-
+    def cyl(self):
         if self.sys == "cyl":
-            return Vec(v, sys="cyl")
+            return Vec(self.vec, sys="cyl")
         elif self.sys == "cart":
             return Vec(
                 np.array(
