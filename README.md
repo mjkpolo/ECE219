@@ -68,3 +68,24 @@ Out[12]: (0.1875, -0.5, -0.9742785792574935)
 
 ```
 
+### Example without script:
+
+Calculate the z component of E⃗ at at R⃗ (x,y,z)=(0,0,2) [meters] due to a circular disk of radius r=6 [meters] and uniform density ρs=3 [C/m2] in the z=0 plane
+
+ ```python
+In [2]: from sympy.abc import *
+
+In [3]: from sympy import *
+
+In [4]: bounds = ((phi, 0, 2 * pi), (r, 0, 6))
+
+In [5]: diff = (-r * cos(phi), -r * sin(phi), 2)
+
+In [6]: mag = sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2]
+   ...: ** 2) ** 3
+
+In [7]: p = 3
+
+In [8]: integrate(p * r / (4 * pi * 8.85e-12 * mag) * diff[2], *bounds).evalf()
+Out[8]: 115893598980.197
+```
