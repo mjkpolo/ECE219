@@ -2,28 +2,31 @@ import numpy as np
 import sympy
 
 theta, phi = sympy.symbols("theta phi")
+coords = {"cart":("x","y","z"),
+        "cyl":("r","phi","z"),
+        "sph":("r","theta","phi")}
 
+def parse_eq(eq):
+    inf = tuple(arg for arg in eq.args if str(arg)[0] == "d")
+    if not inf and str(eq)[0] == "d":
+        inf = (eq,)
+    parsed = eq.subs(tuple((i,1) for i in inf))
+    return (parsed, tuple(str(i)[1:] for i in inf))
 
-def lineIntegral(charge_per_meter, dl, lower, upper, rprime, r):
-    r = r.cart()
-    rprime = rprime.cart(r)
-    diff = (r[0] - rprime[0], r[1] - rprime[1], r[2] - rprime[2])
-    magnitude = sympy.sqrt(diff[0] ** 2 + diff[1] ** 2 + diff[2] ** 2)
-    coeff = charge_per_meter / (4 * sympy.pi * 8.85e-12 * magnitude**3)
-    return (
-        float(sympy.integrate(diff[0] * coeff, (dl, lower, upper))),
-        float(sympy.integrate(diff[1] * coeff, (dl, lower, upper))),
-        float(sympy.integrate(diff[2] * coeff, (dl, lower, upper))),
-    )
-
-
-def getPhi(x, y):
-    if x == 0:
-        return sympy.pi / 2 if y > 0 else -sympy.pi / 2
-    elif x < 0:
-        return sympy.atan(y / x) + sympy.pi
-    else:
-        return sympy.atan(y / x)
+def flux(ds,e,bounds):
+    sum = 0
+    for j,d in enumerate(ds):
+        for i,n in enumerate(d):
+            a,inf = parse_eq(n)
+            if inf:
+                constants = {c:bounds[j][c] for c in coords[d.sys] if c not in inf}
+                coordinate = Coord(tuple(constants[c] if c in constants else c for c in coords[d.sys]),sys=d.sys)
+                sub = tuple((c,getattr(coordinate,e.sys)()[c]) for c in coords[e.sys])
+                integrand = a*getattr(e,d.sys)()[i].subs(sub)
+                int_bounds = tuple((f,bounds[0][f],bounds[1][f]) for f in inf)
+                sum += sympy.integrate(integrand,
+                        *int_bounds).subs(tuple((f[0],f[1]) for f in constants.items())).evalf()
+    return sum
 
 
 def evaluate_vector(vec, coord):
@@ -43,13 +46,48 @@ class Coord:
         if sys != "cart" and sys != "sph" and sys != "cyl":
             raise ValueError("Pass sys as 'cart', 'sph', or 'cyl'")
         self.sys = sys
-        self.coord = np.array(coord)
+        self.coord = np.array(tuple(map(sympy.sympify, coord)),dtype='O')
 
     def __iter__(self):
         return iter(self.coord)
 
     def __getitem__(self, index):
-        return self.coord[index]
+        if index == "x":
+            if self.sys == "cart":
+                return self.coord[0]
+            else:
+                raise ValueError("x is only cartesian")
+
+        elif index == "y":
+            if self.sys == "cart":
+                return self.coord[1]
+            else:
+                raise ValueError("y is only cartesian")
+
+        elif index == "z":
+            if self.sys == "cart" or self.sys == "cyl":
+                return self.coord[2]
+            else:
+                raise ValueError("z is only cartesian or cylindrical")
+        elif index == "r":
+            if self.sys == "sph" or self.sys == "cyl":
+                return self.coord[0]
+            else:
+                raise ValueError("r is only spherical or cylindrical")
+        elif index == "phi":
+            if self.sys == "sph":
+                return self.coord[2]
+            elif self.sys == "cyl":
+                return self.coord[1]
+            else:
+                raise ValueError("phi is only spherical or cylindrical")
+        elif index == "theta":
+            if self.sys == "sph":
+                return self.coord[1]
+            else:
+                raise ValueError("theta is only spherical")
+        else:
+            return self.coord[index]
 
     def __repr__(self):
         return f"Coord({self.coord}, sys={self.sys})"
@@ -79,7 +117,7 @@ class Coord:
         elif self.sys == "cart":
             x, y, z = self.coord
             theta = sympy.acos(z / sympy.sqrt(x**2 + y**2 + z**2))
-            phi = getPhi(x, y)
+            phi = sympy.atan2(y, x)
             r = sympy.sqrt(x**2 + y**2 + z**2)
         elif self.sys == "cyl":
             r, phi, z = self.coord
@@ -95,7 +133,7 @@ class Coord:
         elif self.sys == "cart":
             x, y, z = self.coord
             r = sympy.sqrt(x**2 + y**2)
-            phi = getPhi(x, y)
+            phi = sympy.atan2(y, x)
         elif self.sys == "sph":
             r, theta, phi = self.coord
             z = r * sympy.cos(theta)
